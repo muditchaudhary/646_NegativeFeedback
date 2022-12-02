@@ -3,6 +3,7 @@ import argparse
 from tqdm.auto import tqdm
 import sys
 
+
 def evaluate(input_data):
     hits_at_k = {1: 0, 5: 0, 10: 0, 20: 0, 50: 0, 100: 0, 200: 0, 500: 0, 700: 0, 900: 0}
     reciprocal_ranks = []
@@ -31,11 +32,10 @@ def evaluate(input_data):
     print(f"Total number of questions: {len(input_data)}")
     print(f"Total number of questions with retrieved passage in top-1000: {len(reciprocal_ranks)}")
     print(f"Number of questions with no relevant passage in top-1000: {num_questions_no_relevant}")
-    print(f"Mean reciprocal rank: {sum(reciprocal_ranks)/len(reciprocal_ranks)}")
+    print(f"Mean reciprocal rank: {sum(reciprocal_ranks) / len(reciprocal_ranks)}")
     print("===Hits@K===")
     for key, value in hits_at_k.items():
         print(f"hits@{key} : {value}")
-
 
 
 if __name__ == "__main__":
