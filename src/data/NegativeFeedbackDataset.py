@@ -8,7 +8,15 @@ import pickle
 
 
 class NegativeFeedbackDataset(Dataset):
+    """
+    Torch dataset class for Negative Feedback Query Refinement
+
+    """
     def __init__(self, args):
+        """
+        Constructor method
+
+        """
         self.neg_sampling_ranker = args.neg_sampling_ranker
         self.dataset_split = args.dataset_split
         self.model = args.mode
@@ -26,7 +34,12 @@ class NegativeFeedbackDataset(Dataset):
         self.prepare_dataset()
 
     def prepare_dataset(self):
+        """
+        Prepare dataset for dataloader
+        1. Filters out the queries that do not have relevant passage in top-1000
+        2. Only stores query_ids and passage_ids (As embeddings are already cached, no encoding of text is necessary)
 
+        """
         try:
             dataset_IO = open(self.dataset_file, encoding="utf-8")
         except FileNotFoundError:
@@ -50,9 +63,24 @@ class NegativeFeedbackDataset(Dataset):
                 self.dataset.append(datapoint)
 
     def __len__(self):
+        """
+        Get length method
+
+        returns:
+        length: int
+        """
         return len(self.dataset)
 
     def __getitem__(self, idx):
+        """
+        Get single item method
+
+        returns:
+        query_embedding: torch.Tensor
+        relevant_passage_embeddings: torch.Tensor
+        negative_passage_embeddings: torch.Tensor
+
+        """
         datapoint = self.dataset[idx]
         negative_samples = self.sample_negatives(datapoint)
         query_embedding = self.get_cached_embeddings([datapoint["query_id"]], "query")[0]
@@ -63,13 +91,33 @@ class NegativeFeedbackDataset(Dataset):
             negative_passage_embeddings)
 
     def sample_negatives(self, datapoint):
-        negative_candidates = set(
-            datapoint["all_passage_ids"][self.neg_sample_rank_from:self.neg_sample_rank_to]) - set(
-            datapoint["relevant_passage_ids"])
+        """
+        Negative sampler.
+        1. Randomly sample self.num_neg_samples from the provided range. We use range for versatility.
+        2. During train mode, we remove the positive relevant passage from the candidate set.
+        3. During eval mode, we remove the positive relevant passage from the candidate set.
+
+        returns:
+        negative_samples: List
+        """
+
+        if self.mode == "train":
+            negative_candidates = set(
+                datapoint["all_passage_ids"][self.neg_sample_rank_from:self.neg_sample_rank_to]) - set(
+                datapoint["relevant_passage_ids"])
+        else:
+            negative_candidates = datapoint["all_passage_ids"][self.neg_sample_rank_from:self.neg_sample_rank_to]
 
         return random.choices(list(negative_candidates), k=self.num_neg_samples)
 
     def get_cached_embeddings(self, id_list, data_type):
+        """
+        Gets cached embeddings from the cache folder
+
+        returns:
+        cached_embeddings: numpy.ndarray
+
+        """
         cache_folder = os.path.join(self.cached_embeddings_folder, data_type, "dpr")
 
         embeddings = []
