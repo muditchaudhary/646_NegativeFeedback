@@ -12,13 +12,13 @@ class NegativeFeedbackDataset(Dataset):
     Torch dataset class for Negative Feedback Query Refinement
 
     """
-    def __init__(self, args):
+    def __init__(self, args, dataset_split):
         """
         Constructor method
 
         """
         self.neg_sampling_ranker = args.neg_sampling_ranker
-        self.dataset_split = args.dataset_split
+        self.dataset_split = dataset_split
         self.mode = args.mode
         self.neg_sample_rank_from = args.neg_sample_rank_from
         self.neg_sample_rank_to = args.neg_sample_rank_to + 1

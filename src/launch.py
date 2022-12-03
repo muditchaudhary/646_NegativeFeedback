@@ -7,7 +7,6 @@ if __name__ == "__main__":
     args = argparse.ArgumentParser()
     args.add_argument("--dataset_folder", type=str, required=True)
     args.add_argument("--neg_sampling_ranker", type=str, default="bm25")
-    args.add_argument("--dataset_split", type=str, required=True)
     args.add_argument("--neg_sample_rank_from", type=int, required=True)
     args.add_argument("--neg_sample_rank_to", type=int, required=True)
     args.add_argument("--num_neg_samples", type=int, required=True)
