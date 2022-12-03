@@ -19,12 +19,12 @@ class NegativeFeedbackDataset(Dataset):
         """
         self.neg_sampling_ranker = args.neg_sampling_ranker
         self.dataset_split = args.dataset_split
-        self.model = args.mode
+        self.mode = args.mode
         self.neg_sample_rank_from = args.neg_sample_rank_from
         self.neg_sample_rank_to = args.neg_sample_rank_to + 1
         self.num_neg_samples = args.num_neg_samples
-        self.cached_embeddings_folder = os.path.join(args.cached_embeddings_root, self.dataset_type)
-
+        self.cached_embeddings_folder = os.path.join(args.cached_embeddings_root, self.dataset_split)
+        self.embedding_type = args.embedding_type
         if self.neg_sampling_ranker == "bm25":
             self.dataset_file = os.path.join(args.dataset_folder, f"{self.dataset_split}_bm25.jsonl")
         else:
@@ -53,7 +53,7 @@ class NegativeFeedbackDataset(Dataset):
             for passage in data["retrieved_passages"]:
                 all_passage_ids.append(passage["passage_id"])
                 if passage["relevance"]:
-                    positive_passage_id.append(passage["passage_id"])
+                    positive_passage_ids.append(passage["passage_id"])
                     found = True
 
             if found:
@@ -125,6 +125,6 @@ class NegativeFeedbackDataset(Dataset):
             cache_path = os.path.join(cache_folder, f"{idx}.embed")
             with open(cache_path, "rb") as fEmbed:
                 embedding = pickle.load(fEmbed)
-                embeddings.append(embedding)
+                embeddings.append(embedding[self.embedding_type])
 
         return np.asarray(embeddings)

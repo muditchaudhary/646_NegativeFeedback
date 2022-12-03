@@ -17,7 +17,8 @@ def evaluate(input_data):
         for idx, passage in enumerate(data["retrieved_passages"]):
             if passage["relevance"] == True:
                 rank = idx + 1
-                reciprocal_ranks.append(1 / rank)
+                if not found:
+                    reciprocal_ranks.append(1 / rank)
                 for key in hits_at_k.keys():
                     if rank <= key:
                         hits_at_k[key] += 1
