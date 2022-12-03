@@ -2,7 +2,7 @@ import torch
 
 class RefinerModel(torch.nn.Module):
 
-    def __init__(self):
+    def __init__(self, args):
         super(RefinerModel, self).__init__()
 
         pass
@@ -17,4 +17,3 @@ class RefinerModel(torch.nn.Module):
         pass
 
 
-    
