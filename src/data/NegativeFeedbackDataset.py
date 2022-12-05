@@ -29,7 +29,7 @@ class NegativeFeedbackDataset(Dataset):
             self.dataset_file = os.path.join(args.dataset_folder, f"{self.dataset_split}_bm25.jsonl")
         else:
             self.dataset_file = os.path.join(args.dataset_folder, f"{self.dataset_split}_dpr.jsonl")
-
+        print(self.dataset_file)
         self.dataset = []
         self.prepare_dataset()
 
@@ -121,6 +121,16 @@ class NegativeFeedbackDataset(Dataset):
         cache_folder = os.path.join(self.cached_embeddings_folder, data_type, "dpr")
 
         embeddings = []
+
+        # @dhawal :using default embeddings
+        # for idx in id_list:
+        #     cache_path = os.path.join(cache_folder, f"default.embed")
+        #     with open(cache_path, "rb") as fEmbed:
+        #         embedding = pickle.load(fEmbed)
+        #         embeddings.append(embedding[self.embedding_type])
+        # return np.asarray(embeddings)
+        # the above code is only for debugging
+
         for idx in id_list:
             cache_path = os.path.join(cache_folder, f"{idx}.embed")
             with open(cache_path, "rb") as fEmbed:
@@ -128,3 +138,4 @@ class NegativeFeedbackDataset(Dataset):
                 embeddings.append(embedding[self.embedding_type])
 
         return np.asarray(embeddings)
+

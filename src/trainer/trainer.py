@@ -37,6 +37,7 @@ class Trainer():
                 raise ValueError("Checkpoint config does not match model config")
 
         if not self.args.eval_only:
+
             train_dataset = NegativeFeedbackDataset(self.args, "train")
             self.train_dataloader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=True)
 
@@ -67,7 +68,7 @@ class Trainer():
                 refined_query_repr = self.model(query_repr, negative_repr)
                 # Expected model output: Refined query representation torch.Tensor; shape (train_batch_size, 1, 768)
 
-                loss = RochhiosLoss(args, refined_query_repr, query_repr, relevant_repr, negative_repr)
+                loss = RochhiosLoss(self.args, refined_query_repr, query_repr, relevant_repr, negative_repr)
 
                 loss.backward()
 
