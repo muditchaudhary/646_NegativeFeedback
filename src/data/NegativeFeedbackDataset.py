@@ -52,7 +52,7 @@ class NegativeFeedbackDataset(Dataset):
             all_passage_ids = []
             for passage in data["retrieved_passages"]:
                 all_passage_ids.append(passage["passage_id"])
-                if passage["relevance"]:
+                if passage["relevance"] and not found:
                     positive_passage_ids.append(passage["passage_id"])
                     found = True
 

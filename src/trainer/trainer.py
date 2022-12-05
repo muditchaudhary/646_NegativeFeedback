@@ -8,7 +8,6 @@ import torch
 import transformers
 import os
 
-
 class Trainer():
     """
     Class for training and eval
@@ -37,7 +36,6 @@ class Trainer():
                 raise ValueError("Checkpoint config does not match model config")
 
         if not self.args.eval_only:
-
             train_dataset = NegativeFeedbackDataset(self.args, "train")
             self.train_dataloader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=True)
 
@@ -47,8 +45,8 @@ class Trainer():
                                                                              num_training_steps=len(
                                                                                  self.train_dataloader) * self.args.epochs)
 
-        dev_dataset = NegativeFeedbackDataset(self.args, "dev")
-        self.dev_dataloader = DataLoader(dev_dataset, batch_size=args.eval_batch_size, shuffle=False)
+        # dev_dataset = NegativeFeedbackDataset(self.args, "dev")
+        # self.dev_dataloader = DataLoader(dev_dataset, batch_size=args.eval_batch_size, shuffle=False)
 
     def train(self):
         """
@@ -91,4 +89,5 @@ class Trainer():
         Returns MRR
 
         """
-        pass
+        return -1
+

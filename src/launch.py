@@ -14,7 +14,7 @@ if __name__ == "__main__":
     args.add_argument("--num_neg_samples", type=int, required=True) # sample 5 values from the above range
     args.add_argument("--cached_embeddings_root", type=str, required=True)
     args.add_argument("--mode", type=str, required=True)
-    args.add_argument("--embedding_type", type=str, default="embedding")
+    args.add_argument("--embedding_type", type=str, default="normalized_embedding")
 
     # trainer args
     args.add_argument("--eval_only", type=bool, default=False)
