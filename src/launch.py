@@ -15,6 +15,7 @@ if __name__ == "__main__":
     args.add_argument("--cached_embeddings_root", type=str, required=True)
     args.add_argument("--mode", type=str, required=True)
     args.add_argument("--embedding_type", type=str, default="normalized_embedding")
+    args.add_argument("--save_model_root", type=str, required=True)
 
     # trainer args
     args.add_argument("--eval_only", type=bool, default=False)

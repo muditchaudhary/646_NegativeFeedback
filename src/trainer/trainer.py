@@ -28,6 +28,7 @@ class Trainer():
 
         self.model = RefinerModel(args)
 
+        self.model_name = f"save_model_{self.args.neg_sampling_ranker}_{self.args.neg_sample_rank_from}_{self.args.neg_sample_rank_to}_{self.args.num_neg_samples}"
         self.trainable_params = self.model.parameters()
         if self.args.checkpoint is not None:
             try:
@@ -45,8 +46,8 @@ class Trainer():
                                                                              num_training_steps=len(
                                                                                  self.train_dataloader) * self.args.epochs)
 
-        # dev_dataset = NegativeFeedbackDataset(self.args, "dev")
-        # self.dev_dataloader = DataLoader(dev_dataset, batch_size=args.eval_batch_size, shuffle=False)
+        dev_dataset = NegativeFeedbackDataset(self.args, "dev")
+        self.dev_dataloader = DataLoader(dev_dataset, batch_size=args.eval_batch_size, shuffle=False)
 
     def train(self):
         """
@@ -81,7 +82,7 @@ class Trainer():
             if mrr > best_MRR:
                 best_MRR = mrr
 
-                save_path = os.path.join(self.args.save_model_root, f"{self.args.model_identifier}_epoch{epoch + 1}.pt")
+                save_path = os.path.join(self.args.save_model_root, f"{self.model_name}_epoch{epoch + 1}.pt")
                 torch.save(self.model, save_path)
 
     def eval(self):

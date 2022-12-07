@@ -3,7 +3,7 @@ import torch
 
 def RochhiosLoss(args, refined_query_repr, query_repr, relevant_repr, negative_repr):
     # Convert Query repr to tensor
-    query_repr = torch.tensor(query_repr)
+    # query_repr = torch.tensor(query_repr)
     cosineLoss = torch.nn.CosineEmbeddingLoss(margin=0)
     regularized_loss = args.alpha1 * cosineLoss(refined_query_repr, query_repr,
                                                 torch.tensor([1.0]))  # want to keep them similar

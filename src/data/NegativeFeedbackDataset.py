@@ -47,6 +47,8 @@ class NegativeFeedbackDataset(Dataset):
 
         for line in dataset_IO:
             data = json.loads(line)
+            if len(data["retrieved_passages"]) < 1000:
+                continue
             found = False
             positive_passage_ids = []
             all_passage_ids = []
@@ -107,8 +109,10 @@ class NegativeFeedbackDataset(Dataset):
                 datapoint["relevant_passage_ids"])
         else:
             negative_candidates = datapoint["all_passage_ids"][self.neg_sample_rank_from:self.neg_sample_rank_to]
-
-        return random.choices(list(negative_candidates), k=self.num_neg_samples)
+        try:
+            return random.choices(list(negative_candidates), k=self.num_neg_samples)
+        except:
+            import ipdb; ipdb.set_trace();
 
     def get_cached_embeddings(self, id_list, data_type):
         """
