@@ -20,7 +20,7 @@ if __name__ == "__main__":
     # trainer args
     args.add_argument("--eval_only", type=bool, default=False)
     args.add_argument("--epochs", type=int, default=10)
-    args.add_argument("--warmup_steps", type=int, default=0)
+    args.add_argument("--warmup_percent", type=float, default=0.0)
     args.add_argument("--learning_rate", type=float, default=1e-3)
     args.add_argument("--train_batch_size", type=int, default=3)
     args.add_argument("--checkpoint", type=str, default=None)

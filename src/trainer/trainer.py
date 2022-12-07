@@ -41,8 +41,10 @@ class Trainer():
             self.train_dataloader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=True)
 
             self.optimizer = optim.AdamW(self.trainable_params, lr=self.args.learning_rate)
+
+            num_warmup_steps = self.args.warmup_percent * (len(self.train_dataloader) * self.args.epochs)
             self.lr_scheduler = transformers.get_linear_schedule_with_warmup(optimizer=self.optimizer,
-                                                                             num_warmup_steps=self.args.warmup_steps,
+                                                                             num_warmup_steps=num_warmup_steps,
                                                                              num_training_steps=len(
                                                                                  self.train_dataloader) * self.args.epochs)
 
@@ -75,6 +77,7 @@ class Trainer():
                     torch.nn.utils.clip_grad_norm_(self.trainable_params, self.args.clip_grad)
 
                 self.optimizer.step()
+                self.lr_scheduler.step()
                 self.optimizer.zero_grad()
 
             mrr = self.eval()
