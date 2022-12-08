@@ -5,6 +5,8 @@ import random
 import torch
 import numpy as np
 import pickle
+import multiprocessing
+from functools import partial
 
 
 class NegativeFeedbackDataset(Dataset):
@@ -12,14 +14,16 @@ class NegativeFeedbackDataset(Dataset):
     Torch dataset class for Negative Feedback Query Refinement
 
     """
-    def __init__(self, args, dataset_split):
+
+    def __init__(self, args, mode, dataset_split, workers=0):
         """
         Constructor method
 
         """
         self.neg_sampling_ranker = args.neg_sampling_ranker
         self.dataset_split = dataset_split
-        self.mode = args.mode
+        self.mode = mode
+        self.workers = workers
         self.neg_sample_rank_from = args.neg_sample_rank_from
         self.neg_sample_rank_to = args.neg_sample_rank_to + 1
         self.num_neg_samples = args.num_neg_samples
@@ -84,13 +88,20 @@ class NegativeFeedbackDataset(Dataset):
 
         """
         datapoint = self.dataset[idx]
-        negative_samples = self.sample_negatives(datapoint)
         query_embedding = self.get_cached_embeddings([datapoint["query_id"]], "query")[0]
-        relevant_passage_embeddings = self.get_cached_embeddings(datapoint["relevant_passage_ids"], "passage")
-        negative_passage_embeddings = self.get_cached_embeddings(negative_samples, "passage")
-
-        return torch.from_numpy(query_embedding), torch.from_numpy(relevant_passage_embeddings), torch.from_numpy(
-            negative_passage_embeddings)
+        if self.mode == "train":
+            negative_samples = self.sample_negatives(datapoint)
+            relevant_passage_embeddings = self.get_cached_embeddings(datapoint["relevant_passage_ids"], "passage")
+            negative_passage_embeddings = self.get_cached_embeddings(negative_samples, "passage")
+            return torch.from_numpy(query_embedding), torch.from_numpy(relevant_passage_embeddings), torch.from_numpy(
+                negative_passage_embeddings)
+        elif self.mode == "eval":
+            all_passage_embeddings = self.get_cached_embeddings(datapoint["all_passage_ids"], "passage")
+            all_passage_ids = np.asarray(datapoint["all_passage_ids"])
+            relevant_passage_ids = np.asarray(datapoint["relevant_passage_ids"])
+            return torch.from_numpy(query_embedding),all_passage_embeddings, all_passage_ids, relevant_passage_ids
+        else:
+            raise NotImplementedError
 
     def sample_negatives(self, datapoint):
         """
@@ -107,12 +118,14 @@ class NegativeFeedbackDataset(Dataset):
             negative_candidates = set(
                 datapoint["all_passage_ids"][self.neg_sample_rank_from:self.neg_sample_rank_to]) - set(
                 datapoint["relevant_passage_ids"])
+
+            negative_candidates = random.choices(list(negative_candidates), k=self.num_neg_samples)
+        elif self.mode == "eval":
+            negative_candidates = datapoint["all_passage_ids"] - set(datapoint["relevant_passage_ids"])
         else:
-            negative_candidates = datapoint["all_passage_ids"][self.neg_sample_rank_from:self.neg_sample_rank_to]
-        try:
-            return random.choices(list(negative_candidates), k=self.num_neg_samples)
-        except:
-            import ipdb; ipdb.set_trace();
+            raise NotImplementedError
+
+        return negative_candidates
 
     def get_cached_embeddings(self, id_list, data_type):
         """
@@ -135,11 +148,30 @@ class NegativeFeedbackDataset(Dataset):
         # return np.asarray(embeddings)
         # the above code is only for debugging
 
-        for idx in id_list:
-            cache_path = os.path.join(cache_folder, f"{idx}.embed")
-            with open(cache_path, "rb") as fEmbed:
-                embedding = pickle.load(fEmbed)
-                embeddings.append(embedding[self.embedding_type])
+        if self.workers > 0:
+            # Parallelized code for IO. Only useful if a significant number of IO ops required
+            global embedding_loader_parallel
+
+            def embedding_loader_parallel(doc_id, cache_folder, embedding_type):
+                cache_path = os.path.join(cache_folder, f"{doc_id}.embed")
+                with open(cache_path, "rb") as fEmbed:
+                    return pickle.load(fEmbed)[embedding_type]
+
+            parallel_loader_partial = partial(embedding_loader_parallel, cache_folder=cache_folder,
+                                              embedding_type=self.embedding_type)
+            workers = self.workers
+            pool = multiprocessing.Pool(workers)
+            embeddings = pool.map(parallel_loader_partial, id_list)
+            pool.close()
+            pool.join()
+            del embedding_loader_parallel
+
+            assert len(embeddings) == len(id_list)
+        else:
+            for idx in id_list:
+                cache_path = os.path.join(cache_folder, f"{idx}.embed")
+                with open(cache_path, "rb") as fEmbed:
+                    embedding = pickle.load(fEmbed)
+                    embeddings.append(embedding[self.embedding_type])
 
         return np.asarray(embeddings)
-
