@@ -18,6 +18,7 @@ if __name__ == "__main__":
     args.add_argument("--max_refining_iterations", type=int, default=7)
     args.add_argument("--partial_eval_steps", type=int, default=None)
     args.add_argument("--use_wandb", type=bool, default=False)
+    args.add_argument("--log_cossim", type=bool, default=True)
     args.add_argument("--delta_learning", type=bool, default=False)
     args.add_argument("--save_preds_root", type=str, required=False)
 
