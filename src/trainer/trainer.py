@@ -120,6 +120,12 @@ class Trainer():
         if self.args.eval_only:
             out_file= open(os.path.join(self.args.save_preds_root, f"{self.model_name}_preds.json"), "w")
         with torch.no_grad():
+            if self.args.log_cossim:
+                    stats_query_iterations = {'query': {}, 'pos' : {}, 'neg' : {}}
+                    for i in range(self.args.max_refining_iterations):
+                        stats_query_iterations['query'][i+1] = []
+                        stats_query_iterations['pos'][i+1] = []
+                        stats_query_iterations['neg'][i+1] = []
             for data in tqdm(self.dev_dataloader, total=total_eval_steps, ncols=50,
                              desc=f"Evaluating"):
 
@@ -135,20 +141,34 @@ class Trainer():
                         all_passage_ids[self.args.neg_sample_rank_from:self.args.neg_sample_rank_to + 1])
                     negative_samples_repr = np.copy(
                         all_passage_repr[self.args.neg_sample_rank_from:self.args.neg_sample_rank_to + 1])
+                    positive_passage_repr = np.zeros([relevant_passage_ids.shape[0], all_passage_repr.shape[1]])
 
-                    for rel_id in relevant_passage_ids:
+                    for i, rel_id in enumerate(relevant_passage_ids):
                         delete_idx = np.where(negative_candidates_ids == rel_id)
-
+                        passage_idx = np.where(all_passage_ids == rel_id)
+                        positive_passage_repr[i] = all_passage_repr[passage_idx]
                         negative_candidates_ids = np.delete(negative_candidates_ids, delete_idx)
                         negative_samples_repr = np.delete(negative_samples_repr, delete_idx, axis=0)
 
                     negative_samples_repr = negative_samples_repr[
                         np.random.choice(np.arange(negative_candidates_ids.size), self.args.num_neg_samples,
                                          replace=False)]
-
+                    cosine_similarity = torch.nn.CosineSimilarity(dim=1)
                     negative_samples_repr_tensor = torch.from_numpy(negative_samples_repr).unsqueeze(0).to(self.device)
-
+                    query_repr_original = query_repr.clone().detach().to(self.device)
                     query_repr = self.model(query_repr, negative_samples_repr_tensor)
+                    if self.args.log_cossim:
+                        query_similarity = cosine_similarity(query_repr, query_repr_original)
+                        
+                        positive_similarity = cosine_similarity(query_repr, torch.tensor(positive_passage_repr).to(self.device)).max() # pick the max repr
+                        # if positive_passage_repr.shape[0] > 1 :
+                            # print(positive_similarity)
+                        negative_similarity = cosine_similarity(query_repr,  torch.tensor(negative_samples_repr).to(self.device)).mean()
+
+                        stats_query_iterations['query'][iteration+1].append(float(query_similarity))
+                        stats_query_iterations['pos'][iteration+1].append(float(positive_similarity))
+                        stats_query_iterations['neg'][iteration+1].append(float(negative_similarity))
+
 
                     np_query = torch.clone(query_repr).detach().cpu().numpy()
 
@@ -182,6 +202,16 @@ class Trainer():
             MRR[key] = mean_rr
             if self.args.use_wandb:
                 wandb.log({f"MRR@{key}": float(mean_rr)})
+        # store everything to wandb
+        if self.args.log_cossim:
+            print("Logging")
+            if self.args.use_wandb:
+                for key in stats_query_iterations['pos'].keys():
+                    mean_pos = sum(stats_query_iterations['pos'][key])/len(stats_query_iterations['pos'][key])
+                    mean_neg = sum(stats_query_iterations['neg'][key])/len(stats_query_iterations['neg'][key])
+                    mean_query = sum(stats_query_iterations['query'][key])/len(stats_query_iterations['query'][key])
+                    wandb.log({ f'query_cosine@{key}' : float(mean_query), f'pos_cosine@{key}' : float(mean_pos), f'neg_cosine@{key}' : float(mean_neg) })
+
 
         return max(list(MRR.values())[1:])
 
