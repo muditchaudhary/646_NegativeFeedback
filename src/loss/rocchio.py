@@ -1,6 +1,5 @@
 import torch
 import wandb
-
 def RochhiosLoss(args, refined_query_repr, query_repr, relevant_repr, negative_repr, device, use_wandb):
     # Convert Query repr to tensor
     # query_repr = torch.tensor(query_repr)

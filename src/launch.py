@@ -4,7 +4,6 @@ from src.trainer.trainer import Trainer
 import argparse
 import ipdb
 import wandb
-
 if __name__ == "__main__":
     # adding defaults to make running easier
     args = argparse.ArgumentParser()
@@ -18,7 +17,9 @@ if __name__ == "__main__":
     args.add_argument("--save_model_root", type=str, required=True)
     args.add_argument("--max_refining_iterations", type=int, default=7)
     args.add_argument("--partial_eval_steps", type=int, default=None)
-    args.add_argument("--use_wandb", action='store_true')
+    args.add_argument("--use_wandb", type=bool, default=False)
+    args.add_argument("--delta_learning", type=bool, default=False)
+    args.add_argument("--save_preds_root", type=str, required=False)
 
     # trainer args
     args.add_argument("--eval_only", action='store_true')

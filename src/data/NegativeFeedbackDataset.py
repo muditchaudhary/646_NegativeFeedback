@@ -99,7 +99,7 @@ class NegativeFeedbackDataset(Dataset):
             all_passage_embeddings = self.get_cached_embeddings(datapoint["all_passage_ids"], "passage")
             all_passage_ids = np.asarray(datapoint["all_passage_ids"])
             relevant_passage_ids = np.asarray(datapoint["relevant_passage_ids"])
-            return torch.from_numpy(query_embedding),all_passage_embeddings, all_passage_ids, relevant_passage_ids
+            return torch.from_numpy(query_embedding),all_passage_embeddings, all_passage_ids, relevant_passage_ids, datapoint["query_id"]
         else:
             raise NotImplementedError
 

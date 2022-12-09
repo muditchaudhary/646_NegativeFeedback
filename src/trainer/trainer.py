@@ -1,3 +1,4 @@
+import json
 from src.model.RefinerModel import RefinerModel
 from src.data.NegativeFeedbackDataset import NegativeFeedbackDataset
 from torch.utils.data import DataLoader
@@ -11,7 +12,6 @@ import numpy as np
 from sentence_transformers import util
 from collections import defaultdict
 import wandb
-
 
 class Trainer():
     """
@@ -34,6 +34,8 @@ class Trainer():
         self.model = RefinerModel(args).to(self.device)
 
         self.model_name = f"save_model_{self.args.neg_sampling_ranker}_{self.args.neg_sample_rank_from}_{self.args.neg_sample_rank_to}_{self.args.num_neg_samples}"
+        if self.args.use_wandb:
+            self.model_name = f"saved_model_{wandb.run.name}"
         self.trainable_params = self.model.parameters()
         if self.args.checkpoint is not None:
             try:
@@ -114,11 +116,17 @@ class Trainer():
         total_eval_steps = len(
             self.dev_dataloader) if self.args.partial_eval_steps is None else self.args.partial_eval_steps
 
+        result_dict = {}
+        if self.args.eval_only:
+            out_file= open(os.path.join(self.args.save_preds_root, f"{self.model_name}_preds.json"), "w")
         with torch.no_grad():
             for data in tqdm(self.dev_dataloader, total=total_eval_steps, ncols=50,
                              desc=f"Evaluating"):
 
-                query_repr, all_passage_repr, all_passage_ids, relevant_passage_ids = data[0]
+                query_repr, all_passage_repr, all_passage_ids, relevant_passage_ids, query_id = data[0]
+                if query_id not in result_dict:
+                    result_dict[query_id] = {"relevant_ids": relevant_passage_ids.tolist()}
+
                 initial_mean_rank = self.calc_reciprocal_rank(all_passage_ids, relevant_passage_ids)
                 MRR[0].append(initial_mean_rank)
                 query_repr = query_repr.unsqueeze(0).to(self.device)
@@ -146,7 +154,7 @@ class Trainer():
 
                     sim_scores = util.cos_sim(np_query, all_passage_repr).numpy()
 
-                    new_ranks = np.argsort(sim_scores, axis=1)  # (1,1000)
+                    new_ranks = np.argsort(-1*sim_scores, axis=1)  # (1,1000)
 
                     all_passage_repr = all_passage_repr[new_ranks[0]]
 
@@ -156,7 +164,14 @@ class Trainer():
 
                     MRR[iteration + 1].append(reciprocal_rank)
 
+                    result_dict[query_id][f"iter_{iteration+1}"] = all_passage_ids.tolist()
+
+
                 eval_steps += 1
+
+                if self.args.eval_only:
+                    out_string = json.dumps(result_dict[query_id])
+                    out_file.write(out_string+'\n')
 
                 if self.args.partial_eval_steps is not None:
                     if eval_steps > self.args.partial_eval_steps:
@@ -176,3 +191,5 @@ class Trainer():
                 return (1 / (rank + 1))
 
         return 0
+
+

@@ -4,6 +4,7 @@ class RefinerModel(torch.nn.Module):
 
     def __init__(self, args):
         super(RefinerModel, self).__init__()
+        self.delta_learn = args.delta_learning
         self.fc1 = torch.nn.Linear(768 * 2, 768)
         self.fc2 = torch.nn.Linear(768, 768)
         self.relu = torch.nn.ReLU()
@@ -21,5 +22,10 @@ class RefinerModel(torch.nn.Module):
         x = self.fc1(modified_repr)
         x = self.relu(x)
         x = self.fc2(x)
-        return x
+
+        if self.delta_learn:
+            refined_query = query_repr + x
+            return refined_query
+        else:
+            return x
 
