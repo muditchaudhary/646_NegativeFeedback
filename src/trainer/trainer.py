@@ -13,6 +13,7 @@ from sentence_transformers import util
 from collections import defaultdict
 import wandb
 
+
 class Trainer():
     """
     Class for training and eval
@@ -39,6 +40,8 @@ class Trainer():
         self.trainable_params = self.model.parameters()
         if self.args.checkpoint is not None:
             try:
+                print("Loading from checkpoint")
+                self.model_name = self.args.checkpoint.split("/")[-1].split(".")[0]
                 self.model.load_state_dict(torch.load(self.args.checkpoint))
             except:
                 raise ValueError("Checkpoint config does not match model config")
@@ -103,7 +106,7 @@ class Trainer():
                 best_MRR = mrr
 
                 save_path = os.path.join(self.args.save_model_root, f"{self.model_name}_epoch{epoch + 1}.pt")
-                torch.save(self.model, save_path)
+                torch.save(self.model.state_dict(), save_path)
 
     def eval(self):
         """
@@ -118,24 +121,26 @@ class Trainer():
 
         result_dict = {}
         if self.args.eval_only:
-            out_file= open(os.path.join(self.args.save_preds_root, f"{self.model_name}_preds.json"), "w")
+            out_file = open(os.path.join(self.args.save_preds_root, f"{self.model_name}_preds.json"), "w")
         with torch.no_grad():
             if self.args.log_cossim:
-                    stats_query_iterations = {'query': {}, 'pos' : {}, 'neg' : {}}
-                    for i in range(self.args.max_refining_iterations):
-                        stats_query_iterations['query'][i+1] = []
-                        stats_query_iterations['pos'][i+1] = []
-                        stats_query_iterations['neg'][i+1] = []
+                stats_query_iterations = {'query': {}, 'pos': {}, 'neg': {}}
+                for i in range(self.args.max_refining_iterations+1):
+                    stats_query_iterations['query'][i] = []
+                    stats_query_iterations['pos'][i] = []
+                    stats_query_iterations['neg'][i] = []
             for data in tqdm(self.dev_dataloader, total=total_eval_steps, ncols=50,
                              desc=f"Evaluating"):
 
                 query_repr, all_passage_repr, all_passage_ids, relevant_passage_ids, query_id = data[0]
                 if query_id not in result_dict:
-                    result_dict[query_id] = {"relevant_ids": relevant_passage_ids.tolist()}
+                    result_dict[query_id] = {"query_id": query_id, "relevant_ids": relevant_passage_ids.tolist()}
 
+                cosine_similarity = torch.nn.CosineSimilarity(dim=1)
                 initial_mean_rank = self.calc_reciprocal_rank(all_passage_ids, relevant_passage_ids)
                 MRR[0].append(initial_mean_rank)
                 query_repr = query_repr.unsqueeze(0).to(self.device)
+                query_repr_original = query_repr.clone().detach().to(self.device)
                 for iteration in range(self.args.max_refining_iterations):
                     negative_candidates_ids = np.copy(
                         all_passage_ids[self.args.neg_sample_rank_from:self.args.neg_sample_rank_to + 1])
@@ -153,28 +158,44 @@ class Trainer():
                     negative_samples_repr = negative_samples_repr[
                         np.random.choice(np.arange(negative_candidates_ids.size), self.args.num_neg_samples,
                                          replace=False)]
-                    cosine_similarity = torch.nn.CosineSimilarity(dim=1)
+
                     negative_samples_repr_tensor = torch.from_numpy(negative_samples_repr).unsqueeze(0).to(self.device)
-                    query_repr_original = query_repr.clone().detach().to(self.device)
+
+                    if self.args.log_cossim and iteration == 0:
+                        query_similarity = cosine_similarity(query_repr, query_repr_original)
+
+                        positive_similarity = cosine_similarity(query_repr, torch.tensor(positive_passage_repr).to(
+                            self.device)).max()  # pick the max repr
+                        # if positive_passage_repr.shape[0] > 1 :
+                        # print(positive_similarity)
+                        negative_similarity = cosine_similarity(query_repr, torch.tensor(negative_samples_repr).to(
+                            self.device)).mean()
+
+                        stats_query_iterations['query'][0].append(float(query_similarity))
+                        stats_query_iterations['pos'][0].append(float(positive_similarity))
+                        stats_query_iterations['neg'][0].append(float(negative_similarity))
+
                     query_repr = self.model(query_repr, negative_samples_repr_tensor)
+
                     if self.args.log_cossim:
                         query_similarity = cosine_similarity(query_repr, query_repr_original)
-                        
-                        positive_similarity = cosine_similarity(query_repr, torch.tensor(positive_passage_repr).to(self.device)).max() # pick the max repr
+
+                        positive_similarity = cosine_similarity(query_repr, torch.tensor(positive_passage_repr).to(
+                            self.device)).max()  # pick the max repr
                         # if positive_passage_repr.shape[0] > 1 :
-                            # print(positive_similarity)
-                        negative_similarity = cosine_similarity(query_repr,  torch.tensor(negative_samples_repr).to(self.device)).mean()
+                        # print(positive_similarity)
+                        negative_similarity = cosine_similarity(query_repr, torch.tensor(negative_samples_repr).to(
+                            self.device)).mean()
 
-                        stats_query_iterations['query'][iteration+1].append(float(query_similarity))
-                        stats_query_iterations['pos'][iteration+1].append(float(positive_similarity))
-                        stats_query_iterations['neg'][iteration+1].append(float(negative_similarity))
-
+                        stats_query_iterations['query'][iteration + 1].append(float(query_similarity))
+                        stats_query_iterations['pos'][iteration + 1].append(float(positive_similarity))
+                        stats_query_iterations['neg'][iteration + 1].append(float(negative_similarity))
 
                     np_query = torch.clone(query_repr).detach().cpu().numpy()
 
                     sim_scores = util.cos_sim(np_query, all_passage_repr).numpy()
 
-                    new_ranks = np.argsort(-1*sim_scores, axis=1)  # (1,1000)
+                    new_ranks = np.argsort(-1 * sim_scores, axis=1)  # (1,1000)
 
                     all_passage_repr = all_passage_repr[new_ranks[0]]
 
@@ -184,34 +205,33 @@ class Trainer():
 
                     MRR[iteration + 1].append(reciprocal_rank)
 
-                    result_dict[query_id][f"iter_{iteration+1}"] = all_passage_ids.tolist()
-
+                    result_dict[query_id][f"iter_{iteration + 1}"] = all_passage_ids.tolist()
 
                 eval_steps += 1
 
                 if self.args.eval_only:
                     out_string = json.dumps(result_dict[query_id])
-                    out_file.write(out_string+'\n')
+                    out_file.write(out_string + '\n')
 
                 if self.args.partial_eval_steps is not None:
                     if eval_steps > self.args.partial_eval_steps:
                         break
 
-        for key in MRR.keys():
+        for key in sorted(list(MRR.keys())):
             mean_rr = sum(MRR[key]) / len(MRR[key])
             MRR[key] = mean_rr
             if self.args.use_wandb:
-                wandb.log({f"MRR@{key}": float(mean_rr)})
+                wandb.log({f"MRR": float(mean_rr)})
         # store everything to wandb
         if self.args.log_cossim:
             print("Logging")
             if self.args.use_wandb:
-                for key in stats_query_iterations['pos'].keys():
-                    mean_pos = sum(stats_query_iterations['pos'][key])/len(stats_query_iterations['pos'][key])
-                    mean_neg = sum(stats_query_iterations['neg'][key])/len(stats_query_iterations['neg'][key])
-                    mean_query = sum(stats_query_iterations['query'][key])/len(stats_query_iterations['query'][key])
-                    wandb.log({ f'query_cosine@{key}' : float(mean_query), f'pos_cosine@{key}' : float(mean_pos), f'neg_cosine@{key}' : float(mean_neg) })
-
+                for key in sorted(list(stats_query_iterations['pos'].keys())):
+                    mean_pos = sum(stats_query_iterations['pos'][key]) / len(stats_query_iterations['pos'][key])
+                    mean_neg = sum(stats_query_iterations['neg'][key]) / len(stats_query_iterations['neg'][key])
+                    mean_query = sum(stats_query_iterations['query'][key]) / len(stats_query_iterations['query'][key])
+                    wandb.log({f'query_cosine': float(mean_query), f'pos_cosine': float(mean_pos),
+                               f'neg_cosine': float(mean_neg)})
 
         return max(list(MRR.values())[1:])
 
@@ -221,5 +241,3 @@ class Trainer():
                 return (1 / (rank + 1))
 
         return 0
-
-

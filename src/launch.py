@@ -20,7 +20,7 @@ if __name__ == "__main__":
     args.add_argument("--use_wandb", type=bool, default=False)
     args.add_argument("--log_cossim", type=bool, default=True)
     args.add_argument("--delta_learning", type=bool, default=False)
-    args.add_argument("--save_preds_root", type=str, required=False)
+    args.add_argument("--save_preds_root", type=str, required=True)
 
     # trainer args
     args.add_argument("--eval_only", action='store_true')

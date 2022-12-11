@@ -9,10 +9,14 @@ def evaluate(input_data):
     reciprocal_ranks = []
     num_questions_no_relevant = 0
 
+    with open("./data/processed_data/valid_dev_ids.json") as f:
+        valid_ids = json.load(f)
+
     print("Ignoring questions with no relevant document in top-1000")
     for line in tqdm(input_data, desc="Evaluating", position=0, leave=True, ascii=True, ncols=90):
         data = json.loads(line)
-
+        if data["query_id"] not in valid_ids:
+            continue
         found = False
         for idx, passage in enumerate(data["retrieved_passages"]):
             if passage["relevance"] == True:
