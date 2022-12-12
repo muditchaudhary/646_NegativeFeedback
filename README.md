@@ -1,4 +1,5 @@
 # Fine Tuning Query Represetation using Iterative Negative Feedback
+by Mudit Chaudhary, Dhawal Gupta
 
 ## Datasets
 We provide pre-processed version of training and dev sets from MS-Marco here: https://drive.google.com/drive/folders/1SWb4w8TrLmHkEgGM8GOCdNHXn2EdF7iN?usp=sharing
