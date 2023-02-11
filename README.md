@@ -1,4 +1,4 @@
-# Fine Tuning Query Represetation using Iterative Negative Feedback
+# Fine Tuning Query Representation using Iterative Negative Feedback
 by Mudit Chaudhary, Dhawal Gupta
 
 Read paper here: https://drive.google.com/file/d/1vyr7ot67V1EcvOtLCm9CROuLNMNq54S6/view?usp=sharing
